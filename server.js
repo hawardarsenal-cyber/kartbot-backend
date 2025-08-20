@@ -1,34 +1,52 @@
-const express = require('express');
-const cors = require('cors');
-const fs = require('fs');
+const express = require("express");
+const bodyParser = require("body-parser");
+const { OpenAI } = require("openai");
+require("dotenv").config();
+
 const app = express();
-const PORT = process.env.PORT || 3001;
+const port = 3000;
 
-app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
 
-// Load FAQs
-const faqs = JSON.parse(fs.readFileSync('./faqs.json', 'utf8'));
-
-// Basic keyword match
-function findAnswer(userInput) {
-  const input = userInput.toLowerCase();
-  for (const faq of faqs) {
-    if (faq.keywords.some(keyword => input.includes(keyword))) {
-      return faq.answer;
-    }
-  }
-  return "🤖 Hmm, I’m not sure. Could you try rephrasing?";
-}
-
-// POST /chat
-app.post('/chat', (req, res) => {
-  const message = req.body.message || '';
-  const reply = findAnswer(message);
-  res.json({ reply });
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`✅ Chatbot API running at http://localhost:${PORT}`);
+// API route
+app.post("/api/faq-response", async (req, res) => {
+  const { query } = req.body;
+
+  if (!query) {
+    return res.status(400).json({ response: "❌ No message provided." });
+  }
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are a friendly go-karting venue assistant. Answer briefly, include links if helpful, and be helpful regarding ticketing, bookings, and venue details."
+        },
+        {
+          role: "user",
+          content: query
+        }
+      ],
+      temperature: 0.6
+    });
+
+    const reply = completion.choices[0].message.content;
+    res.json({ response: reply });
+  } catch (err) {
+    console.error("OpenAI Error:", err.message);
+    res.status(500).json({
+      response: "⚠️ Sorry, there was a problem generating the response."
+    });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`✅ Chatbot API running at http://localhost:${port}`);
 });
