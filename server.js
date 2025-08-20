@@ -1,52 +1,34 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const { OpenAI } = require("openai");
-require("dotenv").config();
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { OpenAI } = require('openai');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-app.use(bodyParser.json());
+app.use(cors());
+app.use(express.json());
 
-// Initialize OpenAI
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-// API route
-app.post("/api/faq-response", async (req, res) => {
-  const { query } = req.body;
-
-  if (!query) {
-    return res.status(400).json({ response: "❌ No message provided." });
-  }
-
+app.post('/api/faq-response', async (req, res) => {
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are a friendly go-karting venue assistant. Answer briefly, include links if helpful, and be helpful regarding ticketing, bookings, and venue details."
-        },
-        {
-          role: "user",
-          content: query
-        }
-      ],
-      temperature: 0.6
+    const { query } = req.body;
+
+    const chatCompletion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: query }],
     });
 
-    const reply = completion.choices[0].message.content;
-    res.json({ response: reply });
-  } catch (err) {
-    console.error("OpenAI Error:", err.message);
-    res.status(500).json({
-      response: "⚠️ Sorry, there was a problem generating the response."
-    });
+    res.json({ response: chatCompletion.choices[0].message.content });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Something went wrong' });
   }
 });
 
 app.listen(port, () => {
-  console.log(`✅ Chatbot API running at http://localhost:${port}`);
+  console.log(`Server running on http://localhost:${port}`);
 });
